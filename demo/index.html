@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Library — Demo</title>
+  <link rel="stylesheet" href="../src/dashboard.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    /* ── Top bar ── */
+    .top-bar {
+      height: 52px;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      overflow: visible;
+      z-index: 400;
+      position: relative;
+    }
+
+    .top-bar-title {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin-right: 8px;
+    }
+
+    .top-bar-sep {
+      width: 1px;
+      height: 24px;
+      background: #334155;
+      flex-shrink: 0;
+    }
+
+    .top-bar-btn {
+      padding: 5px 12px;
+      border-radius: 7px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .top-bar-btn--ghost {
+      background: transparent;
+      color: #94a3b8;
+      border: 1.5px solid #334155;
+    }
+    .top-bar-btn--ghost:hover { background: #334155; color: #fff; }
+
+    .top-bar-btn--primary { background: #3b82f6; color: #fff; }
+    .top-bar-btn--primary:hover { background: #2563eb; }
+
+    .top-bar-label {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: inherit;
+    }
+
+    .top-bar-select {
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1.5px solid #334155;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+    }
+    .top-bar-select:focus { border-color: #3b82f6; }
+
+    .top-bar-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #94a3b8;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      user-select: none;
+    }
+    .top-bar-toggle input[type="checkbox"] {
+      width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;
+    }
+
+    /* ── Page layout ── */
+    .page { display: flex; flex-direction: column; height: 100vh; }
+    .page-body { flex: 1; min-height: 0; display: flex; position: relative; }
+
+    #dashboard-root { display: flex; flex: 1; min-height: 0; }
+
+    /* ── Layout JSON panel ── */
+    #layout-out {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 340px;
+      max-height: 260px;
+      background: #0f172a;
+      color: #7dd3fc;
+      font-family: 'Menlo', 'Fira Code', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 14px;
+      border-radius: 10px;
+      overflow-y: auto;
+      display: none;
+      z-index: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    #layout-out.visible { display: block; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <span class="top-bar-title">&#9783; Dashboard Library</span>
+    <div class="top-bar-sep"></div>
+
+    <!-- Sidebar position -->
+    <span class="top-bar-label">Sidebar</span>
+    <select class="top-bar-select" id="sel-sidebar">
+      <option value="left"   selected>Left</option>
+      <option value="right">Right</option>
+      <option value="top">Top</option>
+      <option value="bottom">Bottom</option>
+      <option value="float">Float</option>
+    </select>
+
+    <!-- Grid pattern -->
+    <span class="top-bar-label">Pattern</span>
+    <select class="top-bar-select" id="sel-pattern">
+      <option value="cubes"   selected>Cubes</option>
+      <option value="dots">Dots</option>
+      <option value="lines">Lines</option>
+      <option value="columns">Columns</option>
+      <option value="dashed">Dashed</option>
+      <option value="cross">Cross</option>
+      <option value="none">None</option>
+    </select>
+
+    <!-- Grid background color -->
+    <span class="top-bar-label">BG</span>
+    <input type="color" id="pick-bg" value="#ffffff" title="Grid background"
+      style="width:32px;height:28px;border:1.5px solid #334155;border-radius:6px;cursor:pointer;padding:2px;background:#0f172a;">
+
+    <div class="top-bar-sep"></div>
+
+    <!-- Toggles -->
+    <label class="top-bar-toggle">
+      <input type="checkbox" id="chk-disappear" checked> Disappear on drop
+    </label>
+    <label class="top-bar-toggle">
+      <input type="checkbox" id="chk-draggable" checked> Draggable cards
+    </label>
+    <label class="top-bar-toggle">
+      <input type="checkbox" id="chk-configurable"> Config button
+    </label>
+    <label class="top-bar-toggle">
+      <input type="checkbox" id="chk-grid-edit" checked> Grid in edit mode
+    </label>
+
+    <div class="top-bar-sep"></div>
+
+    <button class="top-bar-btn top-bar-btn--ghost" id="btn-apply">&#8635; Apply &amp; Rebuild</button>
+    <button class="top-bar-btn top-bar-btn--ghost" id="btn-compact">&#9650; Compact</button>
+    <button class="top-bar-btn top-bar-btn--ghost" id="btn-toggle-lock">&#128274; Lock</button>
+    <button class="top-bar-btn top-bar-btn--ghost" id="btn-save">&#128190; Save</button>
+    <button class="top-bar-btn top-bar-btn--ghost" id="btn-load">&#128257; Load</button>
+    <button class="top-bar-btn top-bar-btn--ghost" id="btn-clear">&#128465; Clear</button>
+    <button class="top-bar-btn top-bar-btn--primary" id="btn-json">{ } JSON</button>
+  </div>
+
+  <!-- Dashboard host -->
+  <div class="page-body">
+    <div id="dashboard-root">
+      <div id="dashboard-sidebar"></div>
+    </div>
+  </div>
+</div>
+
+<pre id="layout-out"></pre>
+
+<script type="module">
+  import { Dashboard } from '../src/Dashboard.js';
+
+  let dash = null;
+
+  async function buildDashboard(initialCards) {
+    // Destroy previous instance
+    if (dash) {
+      dash.destroy();
+      // Re-create the host elements
+      const root = document.getElementById('dashboard-root');
+      root.innerHTML = '<div id="dashboard-sidebar"></div>';
+    }
+
+    const sidebarPosition  = document.getElementById('sel-sidebar').value;
+    const gridPattern      = document.getElementById('sel-pattern').value;
+    const gridBackground   = document.getElementById('pick-bg').value;
+    const disappearOnDrop  = document.getElementById('chk-disappear').checked;
+    const draggable        = document.getElementById('chk-draggable').checked;
+    const cardConfigurable    = document.getElementById('chk-configurable').checked;
+    const showGridInEditMode  = document.getElementById('chk-grid-edit').checked;
+
+    dash = await Dashboard.create({
+      container:       '#dashboard-root',
+      sidebar:         '#dashboard-sidebar',
+      configPath:      '../src/widget-config.json',
+      columns:         12,
+      rowHeight:       80,
+      gap:             8,
+      sidebarPosition,
+      gridPattern,
+      gridBackground,
+      disappearOnDrop,
+      draggable,
+      cardConfigurable,
+      showGridInEditMode,
+      initialCards: initialCards || [
+        { widgetType: 'kpi',   x: 0, y: 0, w: 2, h: 2, config: { title: 'Revenue',  value: '84,200', unit: '$', trend: 'up',   trendValue: '+12%' } },
+        { widgetType: 'kpi',   x: 2, y: 0, w: 2, h: 2, config: { title: 'Users',    value: '3,412',  unit: '',  trend: 'up',   trendValue: '+5%'  } },
+        { widgetType: 'kpi',   x: 4, y: 0, w: 2, h: 2, config: { title: 'Churn',    value: '1.8',    unit: '%', trend: 'down', trendValue: '-0.3%' } },
+        { widgetType: 'chart', x: 0, y: 2, w: 6, h: 4 },
+        { widgetType: 'table', x: 6, y: 0, w: 6, h: 3 },
+        { widgetType: 'text',  x: 6, y: 3, w: 3, h: 3, config: { title: 'Notes', content: 'Weekly sync notes...' } },
+      ],
+    });
+
+    // ── Event system demo ──────────────────────────────────────────────────────
+    dash.on('card:added',   ({ card }) => console.log('[dash] card:added', card.id, card.widgetType));
+    dash.on('card:removed', ({ card }) => console.log('[dash] card:removed', card.id));
+    dash.on('card:moved',   ({ card }) => console.log('[dash] card:moved', card.id));
+    dash.on('card:resized', ({ card }) => console.log('[dash] card:resized', card.id));
+    dash.on('dropped',      ({ card, x, y }) => console.log('[dash] dropped', card.widgetType, 'at', x, y));
+    dash.on('change',       (layout) => sessionStorage.setItem('db-layout-temp', JSON.stringify(layout)));
+  }
+
+  let _locked = false;
+
+  // Initial build
+  await buildDashboard();
+
+  // ── Toolbar ─────────────────────────────────────────────────────────────────
+  document.getElementById('btn-apply').addEventListener('click', () => buildDashboard());
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    localStorage.setItem('db-layout', JSON.stringify(dash.getLayout()));
+    alert('Layout saved.');
+  });
+
+  document.getElementById('btn-load').addEventListener('click', () => {
+    const saved = localStorage.getItem('db-layout');
+    if (!saved) { alert('No saved layout.'); return; }
+    buildDashboard(JSON.parse(saved));
+  });
+
+  document.getElementById('btn-compact').addEventListener('click', () => dash.compact());
+
+  document.getElementById('btn-toggle-lock').addEventListener('click', (e) => {
+    _locked = !_locked;
+    _locked ? dash.disable() : dash.enable();
+    e.currentTarget.textContent = _locked ? '🔓 Unlock' : '🔒 Lock';
+    e.currentTarget.style.color = _locked ? '#f87171' : '';
+  });
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    if (confirm('Remove all cards?')) dash.loadLayout([]);
+  });
+
+  const layoutOut = document.getElementById('layout-out');
+  document.getElementById('btn-json').addEventListener('click', () => {
+    layoutOut.textContent = JSON.stringify(dash.getLayout(), null, 2);
+    layoutOut.classList.toggle('visible');
+  });
+
+  // Live grid pattern + bg updates (no rebuild needed)
+  document.getElementById('sel-pattern').addEventListener('change', (e) => {
+    document.querySelector('.db-grid')?.setAttribute('data-pattern', e.target.value);
+  });
+
+  document.getElementById('pick-bg').addEventListener('input', (e) => {
+    document.querySelector('.db-grid')
+      && (document.querySelector('.db-grid').style.background = e.target.value);
+  });
+</script>
+</body>
+</html>

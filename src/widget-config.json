@@ -1,0 +1,38 @@
+{
+  "dashboard": {
+    "gridBackground": "#ffffff",
+    "gridPattern": "cubes",
+    "gridPatternColor": "#e2e8f0",
+    "sidebarPosition": "left",
+    "disappearOnDrop": true,
+    "draggable": true,
+    "cardConfigurable": false
+  },
+  "kpi": {
+    "title": "KPI Metric",
+    "bgColor": "#ffffff",
+    "value": "0",
+    "unit": "",
+    "trend": "up",
+    "trendValue": "+0%"
+  },
+  "chart": {
+    "title": "Analytics",
+    "bgColor": "#ffffff",
+    "chartType": "bar",
+    "barColor": "#3b82f6",
+    "lineColor": "#3b82f6",
+    "data": "[{\"label\":\"Jan\",\"value\":30},{\"label\":\"Feb\",\"value\":55},{\"label\":\"Mar\",\"value\":40},{\"label\":\"Apr\",\"value\":80},{\"label\":\"May\",\"value\":65},{\"label\":\"Jun\",\"value\":90}]"
+  },
+  "table": {
+    "title": "Data Table",
+    "bgColor": "#ffffff",
+    "columns": "Name,Value,Status",
+    "rows": "[[\"Alpha\",\"1,200\",\"Active\"],[\"Beta\",\"3,400\",\"Pending\"],[\"Gamma\",\"800\",\"Inactive\"]]"
+  },
+  "text": {
+    "title": "Notes",
+    "bgColor": "#fffde7",
+    "content": "Start typing your notes here..."
+  }
+}

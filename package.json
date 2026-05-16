@@ -1,0 +1,58 @@
+{
+  "name": "@pavanbrahmaji0/dashboard-lib",
+  "version": "1.0.0",
+  "description": "Zero-dependency vanilla JS drag-and-drop dashboard library with TypeScript types",
+  "main": "src/Dashboard.js",
+  "types": "index.d.ts",
+  "type": "module",
+  "files": [
+    "src/",
+    "index.d.ts",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "import": "./src/Dashboard.js",
+      "types": "./index.d.ts"
+    },
+    "./css": "./src/dashboard.css",
+    "./widgets/KpiWidget": {
+      "import": "./src/widgets/KpiWidget.js",
+      "types": "./src/widgets/KpiWidget.d.ts"
+    },
+    "./widgets/TextWidget": {
+      "import": "./src/widgets/TextWidget.js",
+      "types": "./src/widgets/TextWidget.d.ts"
+    },
+    "./widgets/TableWidget": {
+      "import": "./src/widgets/TableWidget.js",
+      "types": "./src/widgets/TableWidget.d.ts"
+    },
+    "./widgets/ChartWidget": {
+      "import": "./src/widgets/ChartWidget.js",
+      "types": "./src/widgets/ChartWidget.d.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "dashboard",
+    "drag-and-drop",
+    "widgets",
+    "grid",
+    "vanilla-js",
+    "typescript",
+    "zero-dependency"
+  ],
+  "author": "PavanBrahmaji0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PavanBrahmaji0/dashboard-lib.git"
+  },
+  "homepage": "https://github.com/PavanBrahmaji0/dashboard-lib#readme",
+  "bugs": {
+    "url": "https://github.com/PavanBrahmaji0/dashboard-lib/issues"
+  }
+}
