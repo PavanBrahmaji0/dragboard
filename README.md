@@ -1,4 +1,4 @@
-# @pavanbrahmaji0/dashboard-lib
+# @pavanbrahmaji0/dragboard
 
 A zero-dependency, framework-agnostic drag-and-drop dashboard library with full TypeScript support.
 
@@ -22,20 +22,20 @@ Works in vanilla JS, React, Angular, Vue — no build step required.
 ## Installation
 
 ```bash
-npm install @pavanbrahmaji0/dashboard-lib
+npm install @pavanbrahmaji0/dragboard
 ```
 
 ## Quick Start
 
 ```html
-<link rel="stylesheet" href="node_modules/@pavanbrahmaji0/dashboard-lib/src/dashboard.css">
+<link rel="stylesheet" href="node_modules/@pavanbrahmaji0/dragboard/src/dashboard.css">
 
 <div id="root">
   <div id="sidebar"></div>
 </div>
 
 <script type="module">
-  import { Dashboard } from '@pavanbrahmaji0/dashboard-lib';
+  import { Dashboard } from '@pavanbrahmaji0/dragboard';
 
   const dash = await Dashboard.create({
     container: '#root',
@@ -177,7 +177,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   private dash: any;
 
   async ngAfterViewInit() {
-    const { Dashboard } = await import('@pavanbrahmaji0/dashboard-lib');
+    const { Dashboard } = await import('@pavanbrahmaji0/dragboard');
     this.dash = await Dashboard.create({
       container: this.rootRef.nativeElement,
       sidebar:   this.sidebarRef.nativeElement,

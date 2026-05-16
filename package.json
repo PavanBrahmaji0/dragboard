@@ -1,7 +1,7 @@
 {
-  "name": "@pavanbrahmaji0/dashboard-lib",
+  "name": "@pavanbrahmaji0/dragboard",
   "version": "1.0.0",
-  "description": "Zero-dependency vanilla JS drag-and-drop dashboard library with TypeScript types",
+  "description": "Zero-dependency drag-and-drop dashboard grid with live resize, TypeScript types, and no build step.",
   "main": "src/Dashboard.js",
   "types": "index.d.ts",
   "type": "module",
@@ -49,10 +49,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PavanBrahmaji0/dashboard-lib.git"
+    "url": "https://github.com/PavanBrahmaji0/dragboard.git"
   },
-  "homepage": "https://github.com/PavanBrahmaji0/dashboard-lib#readme",
+  "homepage": "https://github.com/PavanBrahmaji0/dragboard#readme",
   "bugs": {
-    "url": "https://github.com/PavanBrahmaji0/dashboard-lib/issues"
+    "url": "https://github.com/PavanBrahmaji0/dragboard/issues"
   }
 }
