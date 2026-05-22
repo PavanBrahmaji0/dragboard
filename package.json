@@ -1,5 +1,5 @@
 {
-  "name": "@pavanbrahmaji0/dragboard",
+  "name": "@pavan_brahmaji/dragboard",
   "version": "1.0.0",
   "description": "Zero-dependency drag-and-drop dashboard grid with live resize, TypeScript types, and no build step.",
   "main": "src/Dashboard.js",
