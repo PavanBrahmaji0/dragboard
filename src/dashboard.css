@@ -62,6 +62,9 @@
   --db-sidebar-item-sub-color:  #94a3b8;   /* description text */
 
   /* ── Shared ── */
+  --db-color-surface:      #ffffff;
+  --db-color-header:       #1e293b;
+  --db-shadow:             0 2px 12px rgba(0,0,0,0.08);
   --db-color-border:       #e2e8f0;  /* kept for grid/drop-preview compat */
   --db-color-accent:       #3b82f6;
   --db-color-danger:       #ef4444;
@@ -245,13 +248,16 @@
   align-items: center;
   gap: 10px;
 }
-.db-layout--sidebar-top .db-sidebar-title {
-  writing-mode: unset;
+.db-layout--sidebar-top .db-sidebar-header {
   border-bottom: none;
   border-right: 1px solid var(--db-color-border);
   padding: 0 12px 0 0;
   margin-bottom: 0;
   margin-right: 4px;
+  gap: 8px;
+}
+.db-layout--sidebar-top .db-sidebar-title {
+  writing-mode: unset;
   white-space: nowrap;
 }
 .db-layout--sidebar-top .db-sidebar-item { flex-shrink: 0; }
@@ -275,12 +281,15 @@
   align-items: center;
   gap: 10px;
 }
-.db-layout--sidebar-bottom .db-sidebar-title {
+.db-layout--sidebar-bottom .db-sidebar-header {
   border-bottom: none;
   border-right: 1px solid var(--db-color-border);
   padding: 0 12px 0 0;
   margin-bottom: 0;
   margin-right: 4px;
+  gap: 8px;
+}
+.db-layout--sidebar-bottom .db-sidebar-title {
   white-space: nowrap;
 }
 .db-layout--sidebar-bottom .db-sidebar-item { flex-shrink: 0; }
@@ -473,6 +482,8 @@
 
 /* When dragging is disabled, header cursor reverts */
 .db-card--no-drag .db-card-header { cursor: default; }
+.db-card--locked .db-card-header { cursor: default; }
+.db-card--locked .db-card-drag-handle { opacity: 0.25; }
 
 /* ── Global drag/resize disabled state (dash.disable()) ─────────────────── */
 .db-grid--disabled .db-card-header          { cursor: default; pointer-events: none; }

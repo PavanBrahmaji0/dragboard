@@ -35,13 +35,14 @@ const ChartWidget = {
     wrap.className = 'db-chart-wrap';
     const canvas = document.createElement('canvas');
     canvas.className = 'db-chart-canvas';
+    canvas._config = config;
     wrap.appendChild(canvas);
     container.appendChild(wrap);
     ChartWidget._draw(canvas, config);
 
     // Redraw on resize via ResizeObserver
     if (typeof ResizeObserver !== 'undefined') {
-      const ro = new ResizeObserver(() => ChartWidget._draw(canvas, config));
+      const ro = new ResizeObserver(() => ChartWidget._draw(canvas, canvas._config || config));
       ro.observe(container);
       canvas._ro = ro;
     }
@@ -49,7 +50,10 @@ const ChartWidget = {
 
   update(container, config) {
     const canvas = container.querySelector('.db-chart-canvas');
-    if (canvas) ChartWidget._draw(canvas, config);
+    if (canvas) {
+      canvas._config = config;
+      ChartWidget._draw(canvas, config);
+    }
   },
 
   destroy(container) {
@@ -59,18 +63,30 @@ const ChartWidget = {
 
   _draw(canvas, config) {
     let data = [];
-    try { data = JSON.parse(config.data || DEFAULT_DATA); } catch { data = []; }
+    if (Array.isArray(config.data)) {
+      data = config.data;
+    } else {
+      try {
+        const parsed = JSON.parse(config.data || DEFAULT_DATA);
+        data = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        data = [];
+      }
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.parentElement.getBoundingClientRect();
-    const W = rect.width  || 300;
-    const H = rect.height || 160;
+    // Subtract .db-chart-wrap horizontal (24px) & vertical (18px) padding
+    const W = rect.width  > 24 ? rect.width  - 24 : 300;
+    const H = rect.height > 18 ? rect.height - 18 : 160;
     canvas.width  = W * dpr;
     canvas.height = H * dpr;
     canvas.style.width  = W + 'px';
     canvas.style.height = H + 'px';
 
-    const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
@@ -79,7 +95,7 @@ const ChartWidget = {
     const pad   = { top: 16, right: 16, bottom: 28, left: 36 };
     const chartW = W - pad.left - pad.right;
     const chartH = H - pad.top  - pad.bottom;
-    const maxVal = Math.max(...data.map(d => d.value), 1);
+    const maxVal = Math.max(...data.map(d => Number(d.value) || 0), 1);
 
     ctx.font = '11px -apple-system, sans-serif';
     ctx.fillStyle = '#94a3b8';
@@ -118,19 +134,21 @@ const ChartWidget = {
     const radius  = 4;
 
     data.forEach((d, i) => {
-      const barH = (d.value / maxVal) * chartH;
+      const val  = Math.max(0, Number(d.value) || 0);
+      const barH = (val / maxVal) * chartH;
       const x    = pad.left + step * i + barOff;
       const y    = pad.top  + chartH - barH;
+      const r    = Math.min(radius, barW / 2, barH / 2);
 
       ctx.fillStyle = config.barColor || '#3b82f6';
       ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + barW - radius, y);
-      ctx.quadraticCurveTo(x + barW, y, x + barW, y + radius);
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + barW - r, y);
+      ctx.quadraticCurveTo(x + barW, y, x + barW, y + r);
       ctx.lineTo(x + barW, y + barH);
       ctx.lineTo(x, y + barH);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
       ctx.closePath();
       ctx.fill();
     });
@@ -138,19 +156,23 @@ const ChartWidget = {
 
   _drawLine(ctx, data, pad, chartW, chartH, maxVal, config) {
     const step = chartW / data.length;
+    const color = config.lineColor || '#3b82f6';
     const pts  = data.map((d, i) => ({
       x: pad.left + step * i + step / 2,
-      y: pad.top  + chartH - (d.value / maxVal) * chartH,
+      y: pad.top  + chartH - (Math.max(0, Number(d.value) || 0) / maxVal) * chartH,
     }));
 
     // Fill area
+    ctx.save();
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pad.top + chartH);
     pts.forEach(p => ctx.lineTo(p.x, p.y));
     ctx.lineTo(pts[pts.length - 1].x, pad.top + chartH);
     ctx.closePath();
-    ctx.fillStyle = (config.lineColor || '#3b82f6') + '22';
+    ctx.globalAlpha = 0.13;
+    ctx.fillStyle = color;
     ctx.fill();
+    ctx.restore();
 
     // Line
     ctx.beginPath();
@@ -159,7 +181,7 @@ const ChartWidget = {
       const mx = (pts[i - 1].x + pts[i].x) / 2;
       ctx.bezierCurveTo(mx, pts[i - 1].y, mx, pts[i].y, pts[i].x, pts[i].y);
     }
-    ctx.strokeStyle = config.lineColor || '#3b82f6';
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
@@ -169,7 +191,7 @@ const ChartWidget = {
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
       ctx.fill();
-      ctx.strokeStyle = config.lineColor || '#3b82f6';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.stroke();
     });

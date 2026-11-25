@@ -59,14 +59,14 @@ export class Card {
     this.id          = 'card-' + (_nextId++);
     this.widgetType  = widgetType;
     this.widgetDef   = widgetDef;
-    this.config      = Object.assign({}, widgetDef.defaultConfig, config);
+    this.config      = Object.assign({}, widgetDef.defaultConfig || {}, config);
     this.grid        = grid;
     this.locked      = locked;
     this.minW        = minW; this.maxW = maxW;
     this.minH        = minH; this.maxH = maxH;
 
-    this._canDrag    = draggable && !noMove;
-    this._canResize  = resizable && !noResize;
+    this._canDrag    = draggable && !noMove && !locked;
+    this._canResize  = resizable && !noResize && !locked;
     this._showConfig = showConfig;
     this._handles    = this._canResize ? parseHandles(resizeHandles) : new Set();
 
@@ -78,9 +78,10 @@ export class Card {
     this.onResizeStart = onResizeStart || (() => {});
     this.onResizeStop  = onResizeStop  || (() => {});
 
-    this._cancelDrag = null;
-    this._cssClasses = cssClasses;
-    this._icons      = icons;
+    this._cancelDrag   = null;
+    this._cancelResize = null;
+    this._cssClasses   = cssClasses;
+    this._icons        = icons;
 
     this.el = this._build();
     if (this._canDrag)          this._bindDrag();
@@ -88,11 +89,19 @@ export class Card {
     this.widgetDef.render(this._bodyEl, this.config);
   }
 
+  _addClasses(el, cls) {
+    if (!cls) return;
+    const tokens = cls.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length) el.classList.add(...tokens);
+  }
+
   /* ── DOM ────────────────────────────────────────────────────────────── */
 
   _build() {
     const el = document.createElement('div');
-    el.className = 'db-card' + (this._canDrag ? '' : ' db-card--no-drag');
+    el.className = 'db-card'
+      + (this._canDrag ? '' : ' db-card--no-drag')
+      + (this.locked ? ' db-card--locked' : '');
     el.dataset.cardId = this.id;
 
     const ic = this._icons;
@@ -126,16 +135,16 @@ export class Card {
 
     // Apply custom CSS classes
     const cls = this._cssClasses;
-    if (cls.card)        el.classList.add(...cls.card.split(' '));
-    if (cls.cardHeader)  this._headerEl.classList.add(...cls.cardHeader.split(' '));
-    if (cls.cardBody)    this._bodyEl.classList.add(...cls.cardBody.split(' '));
-    el.querySelectorAll('.db-card-btn').forEach(btn => {
-      if (cls.cardBtn) btn.classList.add(...cls.cardBtn.split(' '));
-    });
-    const closeBtn  = el.querySelector('.db-card-btn--close');
-    if (closeBtn && cls.cardBtnClose) closeBtn.classList.add(...cls.cardBtnClose.split(' '));
+    this._addClasses(el, cls.card);
+    this._addClasses(this._headerEl, cls.cardHeader);
+    this._addClasses(this._bodyEl, cls.cardBody);
+    if (cls.cardBtn) {
+      el.querySelectorAll('.db-card-btn').forEach(btn => this._addClasses(btn, cls.cardBtn));
+    }
+    const closeBtn = el.querySelector('.db-card-btn--close');
+    if (closeBtn) this._addClasses(closeBtn, cls.cardBtnClose);
     const cfgBtn = el.querySelector('.db-card-btn--config');
-    if (cfgBtn && cls.cardBtnConfig) cfgBtn.classList.add(...cls.cardBtnConfig.split(' '));
+    if (cfgBtn) this._addClasses(cfgBtn, cls.cardBtnConfig);
 
     if (this._showConfig) {
       el.querySelector('.db-card-btn--config').addEventListener('click', e => {
@@ -172,10 +181,10 @@ export class Card {
 
     const moveDrag = (clientX, clientY) => {
       if (!dragging) return;
-      this.el.style.left = (origLeft + clientX - startX) + 'px';
-      this.el.style.top  = (origTop  + clientY - startY) + 'px';
       const { col, row } = this.grid.pixelToCell(clientX, clientY);
       const entry = this.grid.cards.get(this.id);
+      this.el.style.left = (origLeft + clientX - startX) + 'px';
+      this.el.style.top  = (origTop  + clientY - startY) + 'px';
       if (entry) this.grid.showDropPreview(col, row, entry.w, entry.h);
     };
 
@@ -236,12 +245,14 @@ export class Card {
     }, { passive: true });
 
     header.addEventListener('touchmove', e => {
+      if (!dragging) return;
       e.preventDefault();
       const t = e.touches[0];
       moveDrag(t.clientX, t.clientY);
     }, { passive: false });
 
     header.addEventListener('touchend', e => {
+      if (!dragging) return;
       const t = e.changedTouches[0];
       endDrag(t.clientX, t.clientY);
     });
@@ -271,8 +282,8 @@ export class Card {
       const rect = this.el.getBoundingClientRect();
       startX    = clientX;
       startY    = clientY;
-      startW    = rect.width;
-      startH    = rect.height;
+      startW    = rect.width || parseFloat(this.el.style.width) || 0;
+      startH    = rect.height || parseFloat(this.el.style.height) || 0;
       startLeft = parseFloat(this.el.style.left) || 0;
       startTop  = parseFloat(this.el.style.top)  || 0;
       this.onResizeStart(this);
@@ -299,13 +310,19 @@ export class Card {
       newW = Math.max(cellW, newW);
       newH = Math.max(cellH, newH);
 
+      // Clamp to grid boundaries so N/W/E handles never overflow outside the grid
+      const gridRight = this.grid.columns * (cellW + gap);
+      if (hasW) newW = Math.min(newW, startLeft + startW - gap);
+      if (hasE) newW = Math.min(newW, gridRight - startLeft);
+      if (hasN) newH = Math.min(newH, startTop + startH - gap);
+
       // Enforce per-card min/max in pixels
       if (this.minW) newW = Math.max(newW, this.minW * (cellW + gap) - gap);
       if (this.maxW) newW = Math.min(newW, this.maxW * (cellW + gap) - gap);
       if (this.minH) newH = Math.max(newH, this.minH * (cellH + gap) - gap);
       if (this.maxH) newH = Math.min(newH, this.maxH * (cellH + gap) - gap);
 
-      // Re-clamp position when min/max clamped size
+      // Re-clamp position when min/max or boundary clamped size
       if (hasW) newLeft = startLeft + startW - newW;
       if (hasN) newTop  = startTop  + startH - newH;
 
@@ -313,6 +330,13 @@ export class Card {
       this.el.style.height = newH    + 'px';
       this.el.style.left   = newLeft + 'px';
       this.el.style.top    = newTop  + 'px';
+    };
+
+    const cancelResize = () => {
+      if (!resizing) return;
+      resizing = false;
+      const entry = this.grid.cards.get(this.id);
+      if (entry) this.grid._positionCard(this, entry.x, entry.y, entry.w, entry.h);
     };
 
     const endResize = () => {
@@ -359,12 +383,17 @@ export class Card {
       startResize(e.clientX, e.clientY);
       const onMove = me => moveResize(me.clientX, me.clientY);
       const onUp   = () => { endResize(); cleanup(); };
+      const onKey  = ke => { if (ke.key === 'Escape') { cancelResize(); cleanup(); } };
       const cleanup = () => {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup',   onUp);
+        document.removeEventListener('keydown',   onKey);
+        this._cancelResize = null;
       };
+      this._cancelResize = () => { cancelResize(); cleanup(); };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup',   onUp);
+      document.addEventListener('keydown',   onKey);
     });
 
     // Touch
@@ -375,13 +404,14 @@ export class Card {
     }, { passive: true });
 
     handle.addEventListener('touchmove', e => {
+      if (!resizing) return;
       e.preventDefault();
       const t = e.touches[0];
       moveResize(t.clientX, t.clientY);
     }, { passive: false });
 
     handle.addEventListener('touchend', () => endResize());
-    handle.addEventListener('touchcancel', () => { resizing = false; });
+    handle.addEventListener('touchcancel', () => cancelResize());
   }
 
   /* ── Config update ──────────────────────────────────────────────────── */
@@ -389,7 +419,7 @@ export class Card {
   applyConfig(newConfig) {
     Object.assign(this.config, newConfig);
     this._titleEl.textContent = this.config.title || this.widgetDef.label;
-    if (this.config.bgColor) this._bodyEl.style.background = this.config.bgColor;
+    this._bodyEl.style.background = this.config.bgColor || '';
     this.widgetDef.update(this._bodyEl, this.config);
     this.onChange();
   }
@@ -398,6 +428,7 @@ export class Card {
 
   destroy() {
     if (this._cancelDrag) this._cancelDrag();
+    if (this._cancelResize) this._cancelResize();
     this.widgetDef.destroy?.(this._bodyEl);
     this.el.remove();
   }

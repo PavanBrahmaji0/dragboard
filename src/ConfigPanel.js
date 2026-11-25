@@ -1,6 +1,7 @@
 export class ConfigPanel {
   constructor() {
     this._backdrop = null;
+    this._onKeyDown = null;
   }
 
   open(card) {
@@ -15,11 +16,12 @@ export class ConfigPanel {
     const entry = card.grid.cards.get(card.id);
     const currentW = entry ? entry.w : config.w || 2;
     const currentH = entry ? entry.h : config.h || 2;
+    const maxCols = card.grid.columns || 12;
 
     backdrop.innerHTML = `
-      <div class="db-config-panel">
+      <div class="db-config-panel" role="dialog" aria-modal="true">
         <div class="db-config-header">
-          <h3>Configure — ${widgetDef.label}</h3>
+          <h3>Configure — ${this._esc(widgetDef.label)}</h3>
           <button class="db-config-close" title="Close">&#x2715;</button>
         </div>
         <div class="db-config-body">
@@ -30,7 +32,7 @@ export class ConfigPanel {
           <div class="db-config-row">
             <div class="db-config-field">
               <label>Width (columns)</label>
-              <input type="number" name="w" min="1" max="12" value="${currentW}">
+              <input type="number" name="w" min="1" max="${maxCols}" value="${currentW}">
             </div>
             <div class="db-config-field">
               <label>Height (rows)</label>
@@ -39,7 +41,7 @@ export class ConfigPanel {
           </div>
           <div class="db-config-field">
             <label>Background color</label>
-            <input type="color" name="bgColor" value="${config.bgColor || '#ffffff'}">
+            <input type="color" name="bgColor" value="${this._esc(config.bgColor || '#ffffff')}">
           </div>
           ${this._renderWidgetFields(widgetDef.configFields || [], config)}
         </div>
@@ -54,13 +56,19 @@ export class ConfigPanel {
     backdrop.querySelector('.db-cancel').addEventListener('click', () => this.close());
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) this.close(); });
 
+    this._onKeyDown = (e) => {
+      if (e.key === 'Escape') this.close();
+    };
+    document.addEventListener('keydown', this._onKeyDown);
+
     backdrop.querySelector('.db-apply').addEventListener('click', () => {
       const newConfig = this._collectValues(backdrop, widgetDef.configFields || []);
       const newW = parseInt(backdrop.querySelector('[name="w"]').value, 10) || currentW;
       const newH = parseInt(backdrop.querySelector('[name="h"]').value, 10) || currentH;
 
-      card.applyConfig(newConfig);
+      // Resize first so applyConfig's onChange sees updated dimensions in getLayout()
       card.grid.resizeCard(card, newW, newH);
+      card.applyConfig(newConfig);
       this.close();
     });
 
@@ -68,6 +76,10 @@ export class ConfigPanel {
   }
 
   close() {
+    if (this._onKeyDown) {
+      document.removeEventListener('keydown', this._onKeyDown);
+      this._onKeyDown = null;
+    }
     if (this._backdrop) {
       this._backdrop.remove();
       this._backdrop = null;
@@ -95,18 +107,23 @@ export class ConfigPanel {
       }
       return `<div class="db-config-field">
         <label>${this._esc(f.label)}</label>
-        <input type="${f.type || 'text'}" name="${this._esc(f.name)}" value="${this._esc(String(val))}">
+        <input type="${this._esc(f.type || 'text')}" name="${this._esc(f.name)}" value="${this._esc(String(val))}">
       </div>`;
     }).join('');
   }
 
   _collectValues(panel, widgetFields) {
+    const byName = new Map();
+    for (const el of panel.querySelectorAll('[name]')) {
+      byName.set(el.getAttribute('name'), el);
+    }
+
     const cfg = {};
-    cfg.title   = panel.querySelector('[name="title"]').value;
-    cfg.bgColor = panel.querySelector('[name="bgColor"]').value;
+    cfg.title   = byName.get('title')?.value ?? '';
+    cfg.bgColor = byName.get('bgColor')?.value ?? '#ffffff';
 
     for (const f of widgetFields) {
-      const el = panel.querySelector(`[name="${f.name}"]`);
+      const el = byName.get(f.name);
       if (el) cfg[f.name] = el.value;
     }
     return cfg;

@@ -21,6 +21,8 @@ export class EventEmitter {
   }
 
   emit(event, ...args) {
-    (this._listeners[event] || []).forEach(fn => fn(...args));
+    const listeners = this._listeners[event];
+    if (!listeners || !listeners.length) return;
+    for (const fn of [...listeners]) fn(...args);
   }
 }

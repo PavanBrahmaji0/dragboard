@@ -17,8 +17,11 @@ export class Grid {
 
     this._ensureRows(8);
     this._batchDepth = 0;
+    this._previewEl = null;
 
-    requestAnimationFrame(() => this._updateCellW());
+    requestAnimationFrame(() => {
+      if (this.el.isConnected) this._updateCellW();
+    });
   }
 
   /* ── Row management ───────────────────────────────────────────────────── */
@@ -94,11 +97,12 @@ export class Grid {
   }
 
   _isFree(x, y, w, h) {
-    if (x < 0 || x + w > this.columns) return false;
-    this._ensureRows(y + h + 1);
-    for (let r = y; r < y + h; r++) {
+    if (x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > this.columns) return false;
+    const limitR = Math.min(y + h, this.matrix.length);
+    for (let r = y; r < limitR; r++) {
+      const row = this.matrix[r];
       for (let c = x; c < x + w; c++) {
-        if (this.matrix[r][c]) return false;
+        if (row[c]) return false;
       }
     }
     return true;
@@ -106,25 +110,25 @@ export class Grid {
 
   /* Find the nearest free position starting from (col, row) for a w×h block */
   findFreePosition(col, row, w, h, skipId = null) {
+    w = Math.max(1, Math.min(w, this.columns));
     col = Math.max(0, Math.min(this.columns - w, col));
     row = Math.max(0, row);
 
     this._rebuildMatrix(skipId);
 
-    for (let distance = 0; distance < 50; distance++) {
+    if (this._isFree(col, row, w, h)) return { x: col, y: row };
+
+    const maxCol = this.columns - w;
+    for (let distance = 1; distance < 50; distance++) {
       for (let dy = 0; dy <= distance; dy++) {
-        for (let dx = 0; dx <= distance - dy; dx++) {
-          const candidates = [
-            [col + dx, row + dy],
-            [col - dx, row + dy],
-            [col + dx, row - dy],
-            [col - dx, row - dy],
-          ];
-          for (const [cx, cy] of candidates) {
-            if (cy < 0) continue;
-            const clampedCx = Math.max(0, Math.min(this.columns - w, cx));
-            if (this._isFree(clampedCx, cy, w, h)) {
-              return { x: clampedCx, y: cy };
+        const dx = distance - dy;
+        const cxs = dx === 0 ? [col] : [Math.min(maxCol, col + dx), Math.max(0, col - dx)];
+        const cys = dy === 0 ? [row] : [row + dy, row - dy];
+        for (const cy of cys) {
+          if (cy < 0) continue;
+          for (const cx of cxs) {
+            if (this._isFree(cx, cy, w, h)) {
+              return { x: cx, y: cy };
             }
           }
         }
@@ -138,7 +142,6 @@ export class Grid {
     this.matrix = [];
     for (const [id, { x, y, w, h }] of this.cards) {
       if (id === skipId) continue;
-      this._ensureRows(y + h + 1);
       this._occupy(x, y, w, h, true);
     }
   }
@@ -152,7 +155,7 @@ export class Grid {
 
     const { x: fx, y: fy } = this.findFreePosition(x, y, w, h, card.id);
     this.cards.set(card.id, { card, x: fx, y: fy, w, h });
-    this._rebuildMatrix();
+    this._occupy(fx, fy, w, h, true);
     this._positionCard(card, fx, fy, w, h);
     this._commitLayout();
     return { x: fx, y: fy };
@@ -167,7 +170,7 @@ export class Grid {
     const { x, y } = this.findFreePosition(toCol, toRow, w, h, card.id);
     entry.x = x;
     entry.y = y;
-    this._rebuildMatrix();
+    this._occupy(x, y, w, h, true);
     this._positionCard(card, x, y, w, h);
     this._commitLayout();
     return { x, y };
@@ -176,8 +179,9 @@ export class Grid {
   resizeCard(card, newW, newH) {
     const entry = this.cards.get(card.id);
     if (!entry) return;
+    if (card.locked) return;
 
-    newW = this._clampW(card, Math.max(1, Math.min(newW, this.columns - entry.x)));
+    newW = this._clampW(card, Math.max(1, newW));
     newH = this._clampH(card, Math.max(1, newH));
 
     const { x: fx, y: fy } = this.findFreePosition(entry.x, entry.y, newW, newH, card.id);
@@ -185,7 +189,7 @@ export class Grid {
     entry.h = newH;
     entry.x = fx;
     entry.y = fy;
-    this._rebuildMatrix();
+    this._occupy(fx, fy, newW, newH, true);
     this._positionCard(card, fx, fy, newW, newH);
     this._commitLayout();
   }
@@ -194,6 +198,7 @@ export class Grid {
   resizeCardBounds(card, x, y, w, h) {
     const entry = this.cards.get(card.id);
     if (!entry) return;
+    if (card.locked) return;
 
     w = this._clampW(card, Math.max(1, w));
     h = this._clampH(card, Math.max(1, h));
@@ -203,7 +208,7 @@ export class Grid {
     const { x: fx, y: fy } = this.findFreePosition(x, y, w, h, card.id);
     entry.x = fx; entry.y = fy;
     entry.w = w;  entry.h = h;
-    this._rebuildMatrix();
+    this._occupy(fx, fy, w, h, true);
     this._positionCard(card, fx, fy, w, h);
     this._commitLayout();
   }
@@ -218,13 +223,13 @@ export class Grid {
   _clampW(card, w) {
     if (card.minW != null) w = Math.max(w, card.minW);
     if (card.maxW != null) w = Math.min(w, card.maxW);
-    return w;
+    return Math.max(1, Math.min(w, this.columns));
   }
 
   _clampH(card, h) {
     if (card.minH != null) h = Math.max(h, card.minH);
     if (card.maxH != null) h = Math.min(h, card.maxH);
-    return h;
+    return Math.max(1, h);
   }
 
   _positionCard(card, x, y, w, h) {
@@ -258,22 +263,21 @@ export class Grid {
   /* ── Compact: pack all cards upward to eliminate empty rows ─────────────── */
 
   compact() {
-    // Sort cards top-to-bottom, left-to-right
-    const sorted = [...this.cards.entries()].sort(([, a], [, b]) =>
-      a.y !== b.y ? a.y - b.y : a.x - b.x
-    );
-
     this.matrix = [];
+    const unlocked = [];
 
-    for (const [id, entry] of sorted) {
+    for (const entry of this.cards.values()) {
       if (entry.card.locked) {
-        // Locked cards stay in place
-        this._ensureRows(entry.y + entry.h + 1);
         this._occupy(entry.x, entry.y, entry.w, entry.h, true);
-        continue;
+      } else {
+        unlocked.push(entry);
       }
+    }
 
-      // Try to move this card as far up as possible
+    // Sort unlocked cards top-to-bottom, left-to-right
+    unlocked.sort((a, b) => (a.y !== b.y ? a.y - b.y : a.x - b.x));
+
+    for (const entry of unlocked) {
       let bestY = entry.y;
       for (let tryY = 0; tryY < entry.y; tryY++) {
         if (this._isFree(entry.x, tryY, entry.w, entry.h)) {
@@ -283,12 +287,11 @@ export class Grid {
       }
 
       entry.y = bestY;
-      this._ensureRows(bestY + entry.h + 1);
       this._occupy(entry.x, bestY, entry.w, entry.h, true);
       this._positionCard(entry.card, entry.x, bestY, entry.w, entry.h);
     }
 
-    this._growGrid();
+    this._commitLayout();
   }
 
   /* ── Public query ─────────────────────────────────────────────────────── */
@@ -310,25 +313,29 @@ export class Grid {
   /* ── Drop preview ─────────────────────────────────────────────────────── */
 
   showDropPreview(col, row, w, h) {
-    let preview = this.el.querySelector('.db-drop-preview');
-    if (!preview) {
-      preview = document.createElement('div');
-      preview.className = 'db-drop-preview';
-      this.el.appendChild(preview);
+    if (!this._previewEl) {
+      this._previewEl = this.el.querySelector('.db-drop-preview');
+      if (!this._previewEl) {
+        this._previewEl = document.createElement('div');
+        this._previewEl.className = 'db-drop-preview';
+        this.el.appendChild(this._previewEl);
+      }
     }
-    const clampedCol = Math.max(0, Math.min(this.columns - w, col));
-    const { x, y } = this.cellToPixel(clampedCol, row);
-    const { pw, ph } = this.cellSpanToPixel(w, h);
-    preview.style.left   = x + 'px';
-    preview.style.top    = y + 'px';
-    preview.style.width  = pw + 'px';
-    preview.style.height = ph + 'px';
-    preview.style.display = '';
+    const clampedW = Math.max(1, Math.min(w, this.columns));
+    const clampedCol = Math.max(0, Math.min(this.columns - clampedW, col));
+    const clampedRow = Math.max(0, row);
+    const { x, y } = this.cellToPixel(clampedCol, clampedRow);
+    const { pw, ph } = this.cellSpanToPixel(clampedW, h);
+    const p = this._previewEl;
+    p.style.left    = x + 'px';
+    p.style.top     = y + 'px';
+    p.style.width   = pw + 'px';
+    p.style.height  = ph + 'px';
+    p.style.display = '';
   }
 
   hideDropPreview() {
-    const preview = this.el.querySelector('.db-drop-preview');
-    if (preview) preview.style.display = 'none';
+    if (this._previewEl) this._previewEl.style.display = 'none';
   }
 
   /* ── Serialise ────────────────────────────────────────────────────────── */

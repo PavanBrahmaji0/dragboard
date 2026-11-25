@@ -39,9 +39,22 @@ const TableWidget = {
   },
 
   _buildTable(config) {
-    const cols = (config.columns || DEFAULT_COLS).split(',').map(s => s.trim());
+    const rawCols = config.columns ?? DEFAULT_COLS;
+    const cols = Array.isArray(rawCols)
+      ? rawCols.map(s => String(s).trim())
+      : String(rawCols).split(',').map(s => s.trim());
+
     let rows = [];
-    try { rows = JSON.parse(config.rows || DEFAULT_ROWS); } catch { rows = []; }
+    if (Array.isArray(config.rows)) {
+      rows = config.rows;
+    } else {
+      try {
+        const parsed = JSON.parse(config.rows || DEFAULT_ROWS);
+        rows = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        rows = [];
+      }
+    }
 
     const table = document.createElement('table');
     table.className = 'db-table';

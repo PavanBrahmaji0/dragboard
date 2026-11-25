@@ -1,8 +1,9 @@
 export class Sidebar {
-  constructor({ el, widgets, onDragStart, onToggleLock, cssClasses = {}, icons = {} }) {
+  constructor({ el, widgets, onDragStart, onDragEnd, onToggleLock, cssClasses = {}, icons = {} }) {
     this.el = el;
     this.widgets = widgets;
     this.onDragStart = onDragStart;
+    this.onDragEnd = onDragEnd;
     this.onToggleLock = onToggleLock || (() => {});
     this._cssClasses = cssClasses;
     this._icons = icons;
@@ -11,9 +12,22 @@ export class Sidebar {
     this._render();
   }
 
+  _esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  _addClasses(el, cls) {
+    if (!cls) return;
+    const tokens = cls.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length) el.classList.add(...tokens);
+  }
+
   _render() {
     this.el.innerHTML = `
-      <div class="db-sidebar-header${this._cssClasses.sidebarHeader ? ' ' + this._cssClasses.sidebarHeader : ''}">
+      <div class="db-sidebar-header">
         <span class="db-sidebar-title">Widget Library</span>
         <button class="db-sidebar-lock-btn" title="Lock layout">
           <span class="db-sidebar-lock-icon">${this._icons.unlock ?? '&#128275;'}</span>
@@ -21,7 +35,8 @@ export class Sidebar {
       </div>
     `;
 
-    if (this._cssClasses.sidebar) this.el.classList.add(...this._cssClasses.sidebar.split(' '));
+    this._addClasses(this.el, this._cssClasses.sidebar);
+    this._addClasses(this.el.querySelector('.db-sidebar-header'), this._cssClasses.sidebarHeader);
 
     this._lockBtn = this.el.querySelector('.db-sidebar-lock-btn');
     this._lockIcon = this.el.querySelector('.db-sidebar-lock-icon');
@@ -34,15 +49,16 @@ export class Sidebar {
 
     for (const def of this.widgets) {
       const item = document.createElement('div');
-      item.className = 'db-sidebar-item' + (this._cssClasses.sidebarItem ? ' ' + this._cssClasses.sidebarItem : '');
+      item.className = 'db-sidebar-item';
+      this._addClasses(item, this._cssClasses.sidebarItem);
       item.draggable = true;
       item.dataset.widgetType = def.type;
 
       item.innerHTML = `
         <div class="db-sidebar-item-icon">${def.icon}</div>
         <div class="db-sidebar-item-info">
-          <div class="db-sidebar-item-label">${def.label}</div>
-          <div class="db-sidebar-item-sub">${def.description || ''}</div>
+          <div class="db-sidebar-item-label">${this._esc(def.label)}</div>
+          <div class="db-sidebar-item-sub">${this._esc(def.description || '')}</div>
         </div>
       `;
 
@@ -54,6 +70,10 @@ export class Sidebar {
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('text/plain', def.type);
         this.onDragStart(def.type, e);
+      });
+
+      item.addEventListener('dragend', () => {
+        this.onDragEnd?.();
       });
 
       this._items.set(def.type, item);

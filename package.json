@@ -5,6 +5,9 @@
   "main": "src/Dashboard.js",
   "types": "index.d.ts",
   "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
   "files": [
     "src/",
     "index.d.ts",

@@ -50,6 +50,7 @@ export class Dashboard extends EventEmitter {
     if (opts.configPath && !opts.widgetConfig) {
       try {
         const res = await fetch(opts.configPath);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         fileConfig = await res.json();
       } catch (e) {
         console.warn('Dashboard: could not load config from', opts.configPath, e);
@@ -146,8 +147,9 @@ export class Dashboard extends EventEmitter {
     if (this._sidebarEl) {
       this._sidebar = new Sidebar({
         el: this._sidebarEl,
-        widgets: [...BUILT_IN_WIDGETS, ...widgets],
+        widgets: [...this._widgetMap.values()],
         onDragStart: (type) => { this._draggingType = type; },
+        onDragEnd: () => { this._draggingType = null; this._grid.hideDropPreview(); },
         onToggleLock: (locked) => { locked ? this.disable() : this.enable(); },
         cssClasses: this._cssClasses,
         icons: this._icons,
@@ -167,6 +169,11 @@ export class Dashboard extends EventEmitter {
 
     this._onResize = () => this._grid.repositionAll();
     window.addEventListener('resize', this._onResize);
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this._gridResizeObserver = new ResizeObserver(() => this._grid.repositionAll());
+      this._gridResizeObserver.observe(this._gridEl);
+    }
   }
 
   /* ── Layout shell ─────────────────────────────────────────────────────── */
@@ -230,8 +237,8 @@ export class Dashboard extends EventEmitter {
       const def = this._widgetMap.get(this._draggingType);
       if (!def) return;
       const jsonCfg = this._widgetConfig[this._draggingType] || {};
-      const w = jsonCfg.w || def.defaultConfig.w || 2;
-      const h = jsonCfg.h || def.defaultConfig.h || 2;
+      const w = jsonCfg.w || def.defaultConfig?.w || 2;
+      const h = jsonCfg.h || def.defaultConfig?.h || 2;
       const { col, row } = this._grid.pixelToCell(e.clientX, e.clientY);
       this._grid.showDropPreview(col, row, w, h);
     });
@@ -296,8 +303,8 @@ export class Dashboard extends EventEmitter {
       card,
       x,
       y,
-      w || mergedConfig.w || def.defaultConfig.w || 2,
-      h || mergedConfig.h || def.defaultConfig.h || 2,
+      w || mergedConfig.w || def.defaultConfig?.w || 2,
+      h || mergedConfig.h || def.defaultConfig?.h || 2,
     );
 
     if (this._sidebar && this._disappearOnDrop) {
@@ -333,12 +340,14 @@ export class Dashboard extends EventEmitter {
   }
 
   loadLayout(layout = []) {
-    for (const [id] of [...this._grid.cards]) this.removeCard(id);
     const failed = [];
-    for (const spec of layout) {
-      const card = this.addCard(spec);
-      if (!card) failed.push(spec.widgetType);
-    }
+    this.batchUpdate(() => {
+      for (const [id] of [...this._grid.cards]) this.removeCard(id);
+      for (const spec of layout) {
+        const card = this.addCard(spec);
+        if (!card) failed.push(spec.widgetType);
+      }
+    });
     if (failed.length) {
       console.warn('Dashboard.loadLayout: unknown widget type(s) — cards dropped:', failed);
     }
@@ -406,8 +415,21 @@ export class Dashboard extends EventEmitter {
 
   destroy() {
     window.removeEventListener('resize', this._onResize);
+    if (this._gridResizeObserver) {
+      this._gridResizeObserver.disconnect();
+      this._gridResizeObserver = null;
+    }
+    for (const [, { card }] of [...this._grid.cards]) {
+      card.destroy();
+    }
+    this._grid.cards.clear();
+    this._grid.matrix = [];
     this._configPanel.close();
-    if (this._floatToggle) this._floatToggle.remove();
+    if (this._floatToggle) {
+      this._floatToggle.remove();
+      this._floatToggle = null;
+    }
+    this._containerEl.classList.remove('db-layout', `db-layout--sidebar-${this._sidebarPosition}`);
     this._containerEl.innerHTML = '';
     this._listeners = {};
   }
@@ -425,6 +447,7 @@ export class Dashboard extends EventEmitter {
   }
 
   _notifyChange() {
+    if (this._grid._batchDepth > 0) return;
     const layout = this.getLayout();
     if (this._legacyOnChange) this._legacyOnChange(layout);
     this.emit('change', layout);
